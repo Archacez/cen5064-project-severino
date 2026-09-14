@@ -36,17 +36,25 @@ instructor will follow it literally on conference days.]
 ```mermaid
 %% Replace this placeholder with YOUR system's context diagram.
 flowchart TB
-    user([User]) -->|uses| system[Your System]
+    user([User]) -->|uses| system[Personal Finance Budgeter]
     system -->|stores data in| db[(Database)]
 ```
 
 ```mermaid
 %% Container view: your containers should match the tier table above.
 flowchart TB
-    subgraph YourSystem [Your System]
-        ui[Web UI / CLI<br/>Presentation] --> api[Application / Service]
-        api --> domain[Domain Model]
-        domain --> db[(Database<br/>Data tier)]
+    subgraph System [Personal Finance Budgeter]
+        ui[Web UI<br/>Dashboard, TransactionInputForm<br/>Presentation]
+        service[Service Layer<br/>TransactionImportService, BudgetMonitorService<br/>Service]
+        domain[Domain Model<br/>TransactionCategorization, Budget<br/>Domain]
+        data[Repositories<br/>TransactionRepository, BudgetRepository<br/>Data]
+        db[(Relational Database)]
+
+        ui --> service
+        service --> domain
+        service --> data
+        domain --> data
+        data --> db
     end
 ```
 
