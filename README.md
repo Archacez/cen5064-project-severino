@@ -28,7 +28,7 @@ instructor will follow it literally on conference days.]
 |------|--------------------------------|
 | Presentation | [what your UI layer does] "Dashboard" - Dashboard UI for spending trends, "TransactionInputForm" - plus the transaction input forms (manual entry, CSV upload) |
 | Service | [what your use-case/orchestration layer does] "TransactionImportService" - Orchestrates use cases: import flow (parse → categorize → save), and "BudgetMonitorService" - budget monitoring (check transactions against budget rules, trigger alerts) |
-| Domain | [your entities and business rules] "TransactionCategorization" - (keyword/merchant rules, uncategorized fallback) and "Budget" - Budget (limit, threshold, over-limit check) |
+| Domain | [your entities and business rules] "Transaction" - represents an imported transaction (amount, merchant, date, category), "Category" - represents a spending category and its matching keywords, "TransactionCategorization" - (keyword/merchant rules, uncategorized fallback) and "Budget" - Budget (limit, threshold, over-limit check) |
 | Data | [how and where data is stored] "TransactionRepository", "BudgetRepository" Repositories for Transaction, Category, and Budget records against the relational database |
 
 ### C4 — Context & Container (Session 3 studio)
@@ -62,25 +62,54 @@ flowchart TB
 ```mermaid
 %% Class diagram: your 3–4 core domain classes.
 classDiagram
-    class ExampleEntity {
-        -id: Long
-        -name: String
-        +doSomething()
+    class Transaction {
+        -id: int
+        -amount: float
+        -merchant: String
+        -date: Date
+        -category: String
     }
+
+    class Category {
+        -name: String
+        -keywords: List~String~
+    }
+
+    class Budget {
+        -category: String
+        -limit: float
+        +is_over_limit(spent_amount: float) bool
+    }
+
+    class TransactionCategorization {
+        -rules: Dict~String, String~
+        +categorize(transaction: Transaction) String
+    }
+
+    TransactionCategorization --> Transaction : categorizes
+    TransactionCategorization --> Category : assigns
+    Budget --> Category : tracks
 ```
 
 ```mermaid
 %% Sequence diagram: ONE core use case, end to end.
 sequenceDiagram
     actor U as User
-    participant UI
-    participant S as Service
-    participant D as Data
-    U->>UI: action
-    UI->>S: request
-    S->>D: save/load
-    D-->>S: result
-    S-->>UI: response
+    participant UI as TransactionInputForm
+    participant S as TransactionImportService
+    participant Cat as TransactionCategorization
+    participant Repo as TransactionRepository
+    participant DB as Database
+
+    U->>UI: submit transaction (manual/CSV)
+    UI->>S: import_transaction(raw_data)
+    S->>Cat: categorize(transaction)
+    Cat-->>S: category
+    S->>Repo: save(transaction)
+    Repo->>DB: INSERT transaction
+    DB-->>Repo: confirmation
+    Repo-->>S: saved
+    S-->>UI: import complete
     UI-->>U: confirmation
 ```
 
