@@ -55,7 +55,7 @@ def test_csv_upload_saves_multiple_transactions(tmp_path):
 
 
 def test_csv_upload_returns_transaction_objects_with_correct_amounts(tmp_path):
-    service, repo = make_service()
+    service, _ = make_service()
 
     csv_path = tmp_path / "transactions.csv"
     with open(csv_path, "w", newline="") as f:
@@ -70,7 +70,7 @@ def test_csv_upload_returns_transaction_objects_with_correct_amounts(tmp_path):
 
 
 def test_csv_upload_skips_malformed_row_instead_of_crashing(tmp_path):
-    service, repo = make_service()
+    service, _ = make_service()
 
     csv_path = tmp_path / "transactions.csv"
     with open(csv_path, "w", newline="") as f:
