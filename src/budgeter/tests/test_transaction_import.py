@@ -83,3 +83,58 @@ def test_csv_upload_skips_malformed_row_instead_of_crashing(tmp_path):
 
     assert len(imported) == 1
     assert imported[0].merchant == "GOOD ROW"
+
+
+def test_csv_upload_with_only_header_returns_empty_list(tmp_path):
+    service, repo = make_service()
+
+    csv_path = tmp_path / "transactions.csv"
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["amount", "merchant", "date"])
+        # no data rows
+
+    imported = service.import_csv(str(csv_path))
+
+    assert imported == []
+    assert repo.saved == []
+
+
+def test_csv_upload_with_all_malformed_rows_returns_empty_list(tmp_path):
+    service, repo = make_service()
+
+    csv_path = tmp_path / "transactions.csv"
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["amount", "merchant", "date"])
+        writer.writerow(["not_a_number", "BAD1", "2026-01-01"])
+        writer.writerow(["also_bad", "BAD2", "2026-01-01"])
+
+    imported = service.import_csv(str(csv_path))
+
+    assert imported == []
+    assert repo.saved == []
+
+
+def test_manual_entry_rejects_negative_amount():
+    service, repo = make_service()
+
+    try:
+        service.import_manual_entry(amount=-10.0, merchant="SHELL", date="2026-09-26")
+        assert False, "expected ValueError for negative amount"
+    except ValueError:
+        pass
+
+    assert repo.saved == []
+
+
+def test_manual_entry_rejects_empty_merchant():
+    service, repo = make_service()
+
+    try:
+        service.import_manual_entry(amount=10.0, merchant="  ", date="2026-09-26")
+        assert False, "expected ValueError for empty merchant"
+    except ValueError:
+        pass
+
+    assert repo.saved == []
