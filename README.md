@@ -12,9 +12,9 @@ Project: Personal Finance Budgeter
 
 This system is a personal finance budgeter that helps users understand and control their spending by automatically organizing transactions into categories. It is designed for individuals who want a lightweight, self-hosted way to track expenses without relying on a bank-linked app. The system supports four core features: (1) transaction import (manual entry or CSV upload), (2) a rule-based categorization engine that matches transactions to categories using keyword/merchant matching with an "Uncategorized" fallback, (3) budget limits per category with threshold alerts when spending approaches or exceeds the limit, and (4) a spending dashboard that visualizes trends over time. The system will use a layered architecture (Presentation → Service → Domain → Data) backed by a single relational database, with a minimal web UI for interaction.
 
+
 ## How to run
 
-```
 Requires Python 3.12 (the version CI uses) and Git.
 
 ### 1. Get the code and set up a virtual environment
@@ -119,7 +119,8 @@ python -m pytest -q
 python -m ruff check .
 ```
 
-```
+
+
 
 ## Architecture
 
