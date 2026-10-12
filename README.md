@@ -15,9 +15,110 @@ This system is a personal finance budgeter that helps users understand and contr
 ## How to run
 
 ```
-[Exact commands to build and run your system from a clean clone.
-Update this every time the steps change — your partner and your
-instructor will follow it literally on conference days.]
+Requires Python 3.12 (the version CI uses) and Git.
+
+### 1. Get the code and set up a virtual environment
+
+```
+git clone https://github.com/Archacez/cen5064-project-severino.git
+cd cen5064-project-severino
+```
+
+### 2. Create a virtual environment
+
+Windows (PowerShell):
+
+```
+py -m venv .venv
+```
+
+macOS:
+```
+python3 -m venv .venv
+```
+
+### 3. Install dependencies
+
+
+Activate the virtual environment first:
+
+
+Windows (PowerShell):
+
+```
+.\.venv\Scripts\Activate.ps1 
+python -m pip install -r requirements.txt
+python -m pip install pytest ruff
+```
+If PowerShell says running scripts is disabled, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` 
+
+
+macOS:
+
+Activate the virtual environment first:
+```
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install pytest ruff
+```
+
+### 2. Run the app
+
+```
+cd src
+python -m budgeter
+```
+
+A menu appears:
+
+```
+1) Add a transaction
+2) Import transactions from a CSV file
+3) List transactions
+4) Quit
+```
+
+Try this walkthrough:
+
+1. Choose `2` and enter `../sample_transactions.csv`. You should see
+   `Imported 6 transaction(s). Skipped 1 invalid row(s).` (the sample file has one
+   deliberately bad row).
+2. Choose `1` and add one by hand: amount `12.50`, merchant `Starbucks`,
+   date `2026-10-09`.
+3. Choose `3` to list everything:
+
+```
+2026-10-01       12.50  STARBUCKS  [Uncategorized]
+2026-10-02       45.20  SHELL  [Uncategorized]
+2026-10-03       15.99  NETFLIX  [Uncategorized]
+2026-10-04       82.31  PUBLIX  [Uncategorized]
+2026-10-06        9.75  UBER  [Uncategorized]
+2026-10-07      120.00  FPL ELECTRIC  [Uncategorized]
+2026-10-09       12.50  Starbucks  [Uncategorized]
+```
+
+4. Choose `4` to quit, run `python -m budgeter` again, and choose `3`. Your data is
+   still there, because it is stored in a SQLite file (`budgeter.db`) created in the
+   folder you started the app from. Delete that file to start fresh.
+
+Transactions are shown as "Uncategorized" for now; automatic categorization is a
+later feature.
+
+### CSV format
+
+Columns `amount,merchant,date`. The amount must be positive (a value like `1,234.50`
+is fine), the merchant must not be blank, and the date must be a real day written as
+`YYYY-MM-DD`. Rows that break these rules are skipped and counted.
+
+### 3. Run the tests and linter
+
+From the repository root (not `src`):
+
+```
+python -m pytest -q
+python -m ruff check .
+```
+
 ```
 
 ## Architecture
