@@ -221,7 +221,8 @@ Decisions live in [`docs/adr/`](docs/adr/). Start with ADR-001 in Session 4.
 
 | # | Decision | Status |
 |---|----------|--------|
-| [001](docs/adr/adr-001.md) | [What I am building and why] | [proposed] |
+| [001](docs/adr/adr-001.md) | [Categorize transactions with keyword/merchant rules - machine learning out of scope] | [accepted] |
+| [002](docs/adr/adr-002.md) | [Business rules live in the Domain; pandas only parses and cleans - duplicated validity check for manual and CSV entry, copies could drift apart] | [accepted] |
 
 ## Weekly log (optional but recommended)
 
