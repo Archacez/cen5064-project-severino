@@ -31,9 +31,12 @@ class Budget:
             raise ValueError("Budget category cannot be empty")
         if not _is_money(limit) or limit <= 0:
             raise ValueError(f"Invalid limit: {limit!r} (must be a positive number)")
+        if _cents(limit) < CENT:
+            raise ValueError("Budget limit must be at least one cent")
         self.category = category.strip()
         self.limit = float(limit)
-
+        
+        
     def is_over_limit(self, spent):
         return _cents(self._checked(spent)) > _cents(self.limit)
 

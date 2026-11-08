@@ -15,7 +15,7 @@ class TransactionCategorization:
         self._rules = [
             (
                 category.name,
-                [re.compile(rf"(?<!\w){re.escape(word)}(?!\w)", re.IGNORECASE) for word in category.keywords],
+                [re.compile(rf"(?<![^\W\d_]){re.escape(word)}(?![^\W\d_])", re.IGNORECASE) for word in category.keywords],
             )
             for category in categories
         ]

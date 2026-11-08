@@ -1,5 +1,4 @@
 from budgeter.data.transaction_repository import TransactionRepository
-from budgeter.domain.transaction_categorization import TransactionCategorization
 from budgeter.presentation.transaction_input_form import TransactionInputForm
 from budgeter.service.transaction_import_service import TransactionImportService
 

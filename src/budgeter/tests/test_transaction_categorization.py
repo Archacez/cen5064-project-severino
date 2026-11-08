@@ -58,6 +58,18 @@ def test_category_cleans_its_keywords():
     assert category.name == "Food"
     assert category.keywords == ("starbucks", "publix")
 
+def test_keyword_matches_when_digits_are_attached():
+    categorizer = TransactionCategorization(CATEGORIES)
+
+    assert categorizer.categorize(tx("SHELL57444")) == "Transport"
+    assert categorizer.categorize(tx("STARBUCKS12345")) == "Food"
+
+
+def test_keyword_does_not_match_when_attached_to_another_letter():
+    categorizer = TransactionCategorization(CATEGORIES)
+
+    assert categorizer.categorize(tx("Seashells Gift Shop")) == "Uncategorized"
+
 
 def test_category_rejects_bad_input():
     with pytest.raises(ValueError, match="name"):

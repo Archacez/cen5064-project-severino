@@ -43,6 +43,10 @@ def test_budget_cleans_the_category_and_stores_the_limit_as_a_float():
     assert budget.limit == 100.0
     assert isinstance(budget.limit, float)
 
+def test_rejects_budget_limit_smaller_than_one_cent():
+    with pytest.raises(ValueError, match="at least one cent"):
+            Budget("Food", 0.004)
+
 
 @pytest.mark.parametrize("bad_limit", [0, -5, float("nan"), float("inf"), None, "100", True])
 def test_rejects_bad_limits(bad_limit):
