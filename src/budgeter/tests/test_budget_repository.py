@@ -63,3 +63,15 @@ def test_delete(tmp_path):
     assert repo.delete("food") is True
     assert repo.delete("food") is False
     assert repo.find_all() == []
+    
+def test_sql_like_category_name_is_saved_as_data(tmp_path):
+    repo = make_repo(tmp_path)
+    unusual_name = "Food'; DROP TABLE budgets; --"
+
+    repo.save(Budget(unusual_name, 100))
+
+    found = repo.find_by_category(unusual_name)
+
+    assert found.category == unusual_name
+    assert found.limit == 100.0
+    assert len(repo.find_all()) == 1

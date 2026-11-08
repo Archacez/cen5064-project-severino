@@ -80,3 +80,18 @@ def test_seed_defaults_never_overwrites_the_users_own_categories(tmp_path):
 
     assert repo.seed_defaults() is False
     assert [c.name for c in repo.find_all()] == ["Pets"]
+
+def test_sql_like_names_and_keywords_are_saved_as_data(tmp_path):
+    repo = make_repo(tmp_path)
+
+    unusual_name = "Food'; DROP TABLE categories; --"
+    unusual_keyword = "shop'; DROP TABLE category_keywords; --"
+
+    repo.save(Category(unusual_name, [unusual_keyword]))
+
+    found = repo.find_by_name(unusual_name)
+
+    assert found is not None
+    assert found.name == unusual_name
+    assert found.keywords == (unusual_keyword.casefold(),)
+    assert len(repo.find_all()) == 1

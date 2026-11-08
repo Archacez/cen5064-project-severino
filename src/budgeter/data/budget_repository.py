@@ -37,14 +37,33 @@ class BudgetRepository:
                 "SELECT category, limit_amount FROM budgets WHERE category = ?",
                 (category,),
             ).fetchone()
-        return Budget(*row) if row else None
+        if row is None:
+            return None
+
+        try:
+            return Budget(*row)
+        except (ValueError, TypeError) as error:
+            raise ValueError(
+                f"Stored budget for '{row[0]}' is invalid: {error}"
+            ) from error
 
     def find_all(self):
         with closing(self._connect()) as conn:
             rows = conn.execute(
                 "SELECT category, limit_amount FROM budgets ORDER BY category"
             ).fetchall()
-        return [Budget(*row) for row in rows]
+
+        budgets = []
+
+        for category, limit_amount in rows:
+            try:
+                budgets.append(Budget(category, limit_amount))
+            except (ValueError, TypeError) as error:
+                raise ValueError(
+                    f"Stored budget for '{category}' is invalid: {error}"
+                ) from error
+
+        return budgets
 
     def delete(self, category):
         """Remove a budget. Returns True if one was removed."""

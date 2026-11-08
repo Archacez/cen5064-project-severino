@@ -72,13 +72,39 @@ class CategoryRepository:
             grouped.setdefault(name, [])
             if keyword is not None:
                 grouped[name].append(keyword)
-        return [Category(name, words) for name, words in grouped.items()]
+        categories = []
+
+        for name, words in grouped.items():
+            try:
+                categories.append(Category(name, words))
+            except (ValueError, TypeError) as error:
+                raise ValueError(
+                    f"Stored category '{name}' is invalid: {error}"
+                ) from error
+
+        return categories
 
     def find_by_name(self, name):
-        for category in self.find_all():
-            if category.name.casefold() == str(name).casefold():
-                return category
-        return None
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT id, name FROM categories WHERE name = ?",
+                (name,),
+            ).fetchone()
+
+            if row is None:
+                return None
+
+            category_id, category_name = row
+
+            keyword_rows = conn.execute(
+                "SELECT keyword FROM category_keywords "
+                "WHERE category_id = ? ORDER BY position",
+                (category_id,),
+            ).fetchall()
+
+        keywords = [keyword for (keyword,) in keyword_rows]
+
+        return Category(category_name, keywords)
 
     def delete(self, name):
         """Remove a category and its keywords. Returns True if one was removed."""
