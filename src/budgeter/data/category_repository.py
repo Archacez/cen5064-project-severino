@@ -1,15 +1,26 @@
+import json
 import sqlite3
 from contextlib import closing
+from pathlib import Path
 
 from budgeter.domain.category import Category
 
-DEFAULT_CATEGORIES = [
-    Category("Food", ["uber eats", "starbucks", "publix", "mcdonalds", "chipotle", "restaurant", "cafe", "pizza", "grocery"]),
-    Category("Transport", ["shell", "uber", "lyft", "chevron", "exxon", "parking"]),
-    Category("Entertainment", ["netflix", "spotify", "hulu", "cinema"]),
-    Category("Utilities", ["fpl", "comcast", "verizon", "water", "electric"]),
-    Category("Shopping", ["amazon", "walmart", "target"]),
-]
+DEFAULT_CATEGORIES_FILE = Path(__file__).with_name("default_categories.json")
+
+
+def load_default_categories():
+    """Load starter categories from the JSON configuration file."""
+    with DEFAULT_CATEGORIES_FILE.open(encoding="utf-8") as file:
+        data = json.load(file)
+
+    return [
+        Category(item["name"], item["keywords"])
+        for item in data
+    ]
+
+
+DEFAULT_CATEGORIES = load_default_categories()
+
 
 
 class CategoryRepository:

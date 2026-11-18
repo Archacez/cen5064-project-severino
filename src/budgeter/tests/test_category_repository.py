@@ -23,9 +23,16 @@ def test_save_then_find_all_keeps_order_of_categories_and_keywords(tmp_path):
 
 
 def test_categories_survive_a_restart(tmp_path):
-    make_repo(tmp_path).save(Category("Food", ["starbucks"]))
+    make_repo(tmp_path).save(
+        Category("Food", ["starbucks", "publix", "chipotle"])
+    )
 
-    assert [c.name for c in make_repo(tmp_path).find_all()] == ["Food"]
+    restarted_repo = make_repo(tmp_path)
+    found = restarted_repo.find_all()
+
+    assert len(found) == 1
+    assert found[0].name == "Food"
+    assert found[0].keywords == ("starbucks", "publix", "chipotle")
 
 
 def test_saving_again_replaces_keywords_and_keeps_the_position(tmp_path):

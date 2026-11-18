@@ -1,3 +1,4 @@
+
 import sqlite3
 from contextlib import closing
 
@@ -5,11 +6,7 @@ from budgeter.domain.transaction import Transaction
 
 
 class TransactionRepository:
-    """Persists and retrieves Transaction objects in a SQLite file.
-
-    This is the only class that knows SQL. Everything above it deals
-    in Transaction objects.
-    """
+    """Persists and retrieves Transaction objects in SQLite."""
 
     def __init__(self, db_path="budgeter.db"):
         self.db_path = str(db_path)
@@ -19,8 +16,6 @@ class TransactionRepository:
         return sqlite3.connect(self.db_path)
 
     def _create_table(self):
-        # "with conn" commits on success and rolls back on error;
-        # closing() makes sure the connection is always closed.
         with closing(self._connect()) as conn, conn:
             conn.execute(
                 """
@@ -53,21 +48,91 @@ class TransactionRepository:
                 "SELECT amount, merchant, date, category "
                 "FROM transactions ORDER BY date, id"
             ).fetchall()
+
         return [self._to_transaction(row) for row in rows]
 
+    def find_all_records(self):
+        """Return transactions with their database IDs for CRUD operations."""
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT id, amount, merchant, date, category "
+                "FROM transactions ORDER BY date, id"
+            ).fetchall()
+
+        return [
+            {
+                "id": row[0],
+                "amount": row[1],
+                "merchant": row[2],
+                "date": row[3],
+                "category": row[4],
+            }
+            for row in rows
+        ]
+
+    def find_record_by_id(self, transaction_id):
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT id, amount, merchant, date, category "
+                "FROM transactions WHERE id = ?",
+                (transaction_id,),
+            ).fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "id": row[0],
+            "amount": row[1],
+            "merchant": row[2],
+            "date": row[3],
+            "category": row[4],
+        }
+
     def find_by_category(self, category):
-        # "IS ?" (not "= ?") so that category=None matches NULL rows.
         with closing(self._connect()) as conn:
             rows = conn.execute(
                 "SELECT amount, merchant, date, category "
                 "FROM transactions WHERE category IS ? ORDER BY date, id",
                 (category,),
             ).fetchall()
+
         return [self._to_transaction(row) for row in rows]
+
+    def update(self, transaction_id, transaction):
+        with closing(self._connect()) as conn, conn:
+            cursor = conn.execute(
+                """
+                UPDATE transactions
+                SET amount = ?, merchant = ?, date = ?, category = ?
+                WHERE id = ?
+                """,
+                (
+                    transaction.amount,
+                    transaction.merchant,
+                    transaction.date,
+                    transaction.category,
+                    transaction_id,
+                ),
+            )
+
+        return cursor.rowcount > 0
+
+    def delete(self, transaction_id):
+        with closing(self._connect()) as conn, conn:
+            cursor = conn.execute(
+                "DELETE FROM transactions WHERE id = ?",
+                (transaction_id,),
+            )
+
+        return cursor.rowcount > 0
 
     @staticmethod
     def _to_transaction(row):
         amount, merchant, date, category = row
         return Transaction(
-            amount=amount, merchant=merchant, date=date, category=category
+            amount=amount,
+            merchant=merchant,
+            date=date,
+            category=category,
         )

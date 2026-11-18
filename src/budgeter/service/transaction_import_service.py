@@ -60,6 +60,32 @@ class TransactionImportService:
     def list_transactions(self):
         return self.repository.find_all()
 
+    def list_transaction_records(self):
+        """Return transaction records including their database IDs."""
+        return self.repository.find_all_records()
+
+    def update_transaction(self, transaction_id, amount, merchant, date):
+        """Validate and update an existing transaction."""
+        existing = self.repository.find_record_by_id(transaction_id)
+
+        if existing is None:
+            return False
+
+        transaction = Transaction(
+            amount=amount,
+            merchant=merchant,
+            date=date,
+            category=existing["category"],
+        )
+
+        self._categorize_if_possible(transaction)
+
+        return self.repository.update(transaction_id, transaction)
+
+    def delete_transaction(self, transaction_id):
+        """Delete a transaction by its database ID."""
+        return self.repository.delete(transaction_id)
+
     def _categorize_if_possible(self, transaction):
         if self.categorizer:
             transaction.category = self.categorizer.categorize(transaction)
