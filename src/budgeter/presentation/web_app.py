@@ -8,6 +8,8 @@ from budgeter.config import DATABASE_PATH
 from budgeter.data.category_repository import CategoryRepository
 from budgeter.data.transaction_repository import TransactionRepository
 from budgeter.domain.transaction_categorization import TransactionCategorization
+from budgeter.presentation.dashboard import Dashboard
+from budgeter.service.spending_summary_service import SpendingSummaryService
 from budgeter.service.transaction_import_service import TransactionImportService
 
 
@@ -37,17 +39,28 @@ def main():
     service = build_transaction_service()
     transactions = service.list_transaction_records()
 
-    total_spending = sum(item["amount"] for item in transactions)
+    summary_service = SpendingSummaryService(
+    TransactionRepository(DATABASE_PATH)
+    )
 
-    col1, col2 = st.columns(2)
-    col1.metric("Total Transactions", len(transactions))
-    col2.metric("Total Spending", f"${total_spending:,.2f}")
+    transactions = service.list_transaction_records()
+    summary_service = SpendingSummaryService(
+        TransactionRepository(DATABASE_PATH)
+        )
 
     st.divider()
 
-    view_tab, add_tab, manage_tab = st.tabs(
-        ["View Transactions", "Add Transaction", "Manage Transactions"]
+    dashboard_tab, view_tab, add_tab, manage_tab = st.tabs(
+        [
+            "Dashboard",
+            "View Transactions",
+            "Add Transaction",
+            "Manage Transactions",
+        ]
     )
+
+    with dashboard_tab:
+        Dashboard(summary_service).render(transactions)
 
     with view_tab:
         st.subheader("Your Transactions")
