@@ -2,9 +2,13 @@ import datetime
 import math
 import numbers
 import re
+from enum import Enum
 
 ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
+class TransactionType(str, Enum):
+    INCOME = "income"
+    EXPENSE = "expense"
 
 class Transaction:
     """A single spending record.
@@ -17,10 +21,17 @@ class Transaction:
     non-empty text, date is a real calendar day written as YYYY-MM-DD.
     """
 
-    def __init__(self, amount, merchant, date, category=None):
+    def __init__(self, amount, merchant, date, category=None, transaction_type=TransactionType.EXPENSE,):
         self.amount = self._validate_amount(amount)
         self.merchant = self._validate_merchant(merchant)
         self.date = self._validate_date(date)
+        try:
+            self.transaction_type = TransactionType(transaction_type)
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"Invalid transaction type: {transaction_type!r}"
+            ) from None
+
         self.category = category
 
     @staticmethod

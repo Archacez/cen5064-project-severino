@@ -51,6 +51,30 @@ class CategoryRepository:
                 )
                 """
             )
+            conn.execute(
+                """
+                UPDATE categories
+                SET name = 'Transportation'
+                WHERE name = 'Transport'
+                """
+            )
+            transactions_table_exists = conn.execute(
+                """
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table'
+                AND name = 'transactions'
+                """
+            ).fetchone()
+
+            if transactions_table_exists:
+                conn.execute(
+                    """
+                    UPDATE transactions
+                    SET category = 'Transportation'
+                    WHERE category = 'Transport'
+                    """
+                )
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
