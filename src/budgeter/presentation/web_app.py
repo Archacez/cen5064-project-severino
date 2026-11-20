@@ -1,15 +1,16 @@
-
-
 import datetime
 
 import streamlit as st
 
 from budgeter.config import DATABASE_PATH
+from budgeter.data.budget_repository import BudgetRepository
 from budgeter.data.category_repository import CategoryRepository
 from budgeter.data.transaction_repository import TransactionRepository
+from budgeter.domain.budget import Budget
 from budgeter.domain.transaction import TransactionType
 from budgeter.domain.transaction_categorization import TransactionCategorization
 from budgeter.presentation.dashboard import Dashboard
+from budgeter.service.budget_monitor_service import BudgetMonitorService
 from budgeter.service.spending_summary_service import SpendingSummaryService
 from budgeter.service.transaction_import_service import TransactionImportService
 
@@ -23,17 +24,29 @@ INCOME_CATEGORIES = [
 ]
 
 
-def build_transaction_service():
-    """Build the services and repositories used by the web interface."""
+def build_services():
+    """Build the repositories and services used by the web interface."""
     categories = CategoryRepository(DATABASE_PATH)
     categories.seed_defaults()
 
+    transaction_repository = TransactionRepository(DATABASE_PATH)
+    budget_repository = BudgetRepository(DATABASE_PATH)
+
     categorizer = TransactionCategorization(categories.find_all())
 
-    return TransactionImportService(
-        TransactionRepository(DATABASE_PATH),
+    transaction_service = TransactionImportService(
+        transaction_repository,
         categorizer=categorizer,
     )
+
+    summary_service = SpendingSummaryService(transaction_repository)
+
+    budget_monitor = BudgetMonitorService(
+        summary_service,
+        budget_repository,
+    )
+
+    return transaction_service, summary_service, budget_monitor
 
 
 def main():
@@ -46,26 +59,24 @@ def main():
     st.title("💰 Budgeter")
     st.caption("Personal Finance and Expense Tracking")
 
-    service = build_transaction_service()
-    transactions = service.list_transaction_records()
+    service, summary_service, budget_monitor = build_services()
 
-    summary_service = SpendingSummaryService(
-        TransactionRepository(DATABASE_PATH)
-    )
+    transactions = service.list_transaction_records()
 
     st.divider()
 
-    dashboard_tab, view_tab, add_tab, manage_tab = st.tabs(
+    dashboard_tab, view_tab, add_tab, manage_tab, budgets_tab = st.tabs(
         [
             "Dashboard",
             "View Transactions",
             "Add Transaction",
             "Manage Transactions",
+            "Manage Budgets",
         ]
     )
 
     with dashboard_tab:
-        Dashboard(summary_service).render(transactions)
+        Dashboard(summary_service, budget_monitor).render(transactions)
 
     with view_tab:
         st.subheader("Your Transactions")
@@ -251,6 +262,111 @@ def main():
                     st.rerun()
                 else:
                     st.error("Transaction could not be found.")
+
+
+
+    with budgets_tab:
+        st.subheader("Manage Monthly Budgets")
+        st.caption(
+            "Set spending limits for your expense categories. "
+            "Budgets remain saved until you change or delete them."
+        )
+
+        budget_repository = BudgetRepository(DATABASE_PATH)
+
+        expense_categories = [
+            category.name
+            for category in CategoryRepository(DATABASE_PATH).find_all()
+        ]
+
+        saved_budgets = budget_repository.find_all()
+
+        st.markdown("### Create or Update a Budget")
+
+        if not expense_categories:
+            st.info("No expense categories are available.")
+        else:
+            with st.form("add_budget_form"):
+                selected_category = st.selectbox(
+                    "Expense Category",
+                    options=expense_categories,
+                )
+
+                existing_budget = next(
+                    (
+                        budget
+                        for budget in saved_budgets
+                        if budget.category.lower()
+                        == selected_category.lower()
+                    ),
+                    None,
+                )
+
+                default_limit = (
+                    existing_budget.limit
+                    if existing_budget
+                    else 100.00
+                )
+
+                budget_limit = st.number_input(
+                    "Monthly Spending Limit ($)",
+                    min_value=0.01,
+                    value=float(default_limit),
+                    step=10.0,
+                )
+
+                save_budget = st.form_submit_button(
+                    "Save Budget"
+                )
+
+                if save_budget:
+                    try:
+                        budget = Budget(
+                            selected_category,
+                            budget_limit,
+                        )
+
+                        budget_repository.save(budget)
+
+                        st.success(
+                            f"Budget for {selected_category} saved successfully!"
+                        )
+                        st.rerun()
+
+                    except ValueError as error:
+                        st.error(str(error))
+
+        st.divider()
+
+        st.markdown("### Existing Budgets")
+
+        saved_budgets = budget_repository.find_all()
+
+        if not saved_budgets:
+            st.info("You haven't created any budgets yet.")
+        else:
+            for budget in saved_budgets:
+                budget_column, delete_column = st.columns(
+                    [4, 1],
+                    vertical_alignment="center",
+                )
+
+                with budget_column:
+                    st.markdown(
+                        f"**{budget.category}** — "
+                        f"${budget.limit:,.2f} per month"
+                    )
+
+                with delete_column:
+                    if st.button(
+                        "Delete",
+                        key=f"delete_budget_{budget.category}",
+                    ):
+                        budget_repository.delete(budget.category)
+                        st.success(
+                            f"{budget.category} budget deleted."
+                        )
+                        st.rerun()
 
 
 if __name__ == "__main__":

@@ -26,13 +26,23 @@ class SpendingSummaryService:
             "net_cash_flow": income - expenses,
         }
 
-    def spending_by_category(self):
-        """Return expense totals grouped by category."""
+    def spending_by_category(self, month=None):
+        """Return expense totals grouped by category.
+
+        Optionally filter by month in YYYY-MM format.
+        """
         totals = defaultdict(float)
 
         for transaction in self.repository.find_all_records():
             if transaction["transaction_type"] != "expense":
                 continue
+
+            transaction_date = date.fromisoformat(transaction["date"])
+
+            if month is not None:
+                transaction_month = transaction_date.strftime("%Y-%m")
+                if transaction_month != month:
+                    continue
 
             category = transaction["category"] or "Uncategorized"
             totals[category] += transaction["amount"]

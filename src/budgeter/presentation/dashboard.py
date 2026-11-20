@@ -22,14 +22,16 @@ class Dashboard:
         "Uncategorized": "📌",
     }
 
-    def __init__(self, summary_service):
-        self.summary_service = summary_service
 
+    def __init__(self, summary_service, budget_monitor):
+        self.summary_service = summary_service
+        self.budget_monitor = budget_monitor
+
+    
     def render(self, transactions):
         self._apply_styles()
 
         financial_summary = self.summary_service.income_and_expenses()
-        category_totals = self.summary_service.spending_by_category()
         monthly_totals = self.summary_service.monthly_cash_flow()
 
         st.markdown("## Financial Overview")
@@ -38,6 +40,22 @@ class Dashboard:
         self._render_metrics(financial_summary)
 
         st.divider()
+
+        selected_date = st.date_input(
+            "Select month for spending and budget tracking",
+            value=datetime.date.today(),
+            key="dashboard_month",
+        )
+
+        selected_month = selected_date.strftime("%Y-%m")
+
+        category_totals = self.summary_service.spending_by_category(
+            selected_month
+        )
+
+        budget_status = self.budget_monitor.get_budget_status(
+            selected_month
+        )
 
         st.markdown("## Financial Analytics")
 
@@ -54,7 +72,13 @@ class Dashboard:
 
         st.divider()
 
+        self._render_budget_progress(budget_status, selected_month)
+
+        st.divider()
+
         self._render_recent_transactions(transactions)
+
+
 
     def _apply_styles(self):
         st.markdown(
@@ -222,52 +246,114 @@ class Dashboard:
                 use_container_width=True,
             )
 
+
     def _render_category_breakdown(self, category_totals):
         with st.container(border=True):
             st.markdown("### Spending Breakdown")
-            st.caption("Where your money is going.")
+            st.caption("Distribution of your expenses by category.")
 
             if not category_totals:
                 st.info("No expense categories to display.")
                 return
 
-            total_spending = sum(
-                item["total"] for item in category_totals
+            chart = px.pie(
+                category_totals,
+                names="category",
+                values="total",
+                hole=0.45,
+                color_discrete_sequence=px.colors.qualitative.Pastel,
             )
 
-            for item in category_totals:
-                category = item["category"]
-                amount = item["total"]
+            chart.update_traces(
+                textposition="inside",
+                textinfo="percent",
+                hovertemplate=(
+                    "<b>%{label}</b><br>"
+                    "$%{value:,.2f}<br>"
+                    "%{percent}<extra></extra>"
+                ),
+            )
 
-                percentage = (
-                    amount / total_spending
-                    if total_spending
-                    else 0
-                )
+            chart.update_layout(
+                template="plotly_dark",
+                height=350,
+                margin={"t": 15, "b": 15, "l": 10, "r": 10},
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                showlegend=True,
+                legend_title=None,
+            )
+
+            st.plotly_chart(
+                chart,
+                use_container_width=True,
+            )
+
+
+ 
+    def _render_budget_progress(self, budgets, selected_month):
+        month_label = datetime.datetime.strptime(
+        selected_month,
+            "%Y-%m",
+        ).strftime("%B %Y")
+
+        st.markdown(f"## Monthly Budgets — {month_label}")
+        st.caption(
+            "Track your spending against your saved monthly category limits."
+        )
+
+        if not budgets:
+            st.info(
+                "No budgets have been created yet. "
+                "Visit Manage Budgets to set your first spending limit."
+            )
+            return
+
+        columns = st.columns(2, gap="large")
+
+        for index, budget in enumerate(budgets):
+            with columns[index % 2], st.container(border=True):
+                category = budget["category"]
+                spent = budget["spent"]
+                limit = budget["limit"]
+                percentage = budget["percentage_used"]
+                remaining = budget["remaining"]
+                status = budget["status"]
 
                 icon = self.CATEGORY_ICONS.get(category, "📁")
 
-                label_column, amount_column = st.columns([1.2, 1])
-
-                label_column.markdown(
-                    f"{icon} **{category}**"
-                )
-
-                amount_column.markdown(
-                    f"<div style='text-align:right'>"
-                    f"<strong>${amount:,.2f}</strong> "
-                    f"<span style='color:#A7AAB8'>"
-                    f"({percentage:.1%})"
-                    f"</span></div>",
-                    unsafe_allow_html=True,
-                )
-
-                st.progress(percentage)
+                st.markdown(f"### {icon} {category}")
 
                 st.markdown(
-                    "<div style='height:10px'></div>",
-                    unsafe_allow_html=True,
-                )
+                    f"**${spent:,.2f}** spent "
+                    f"of **${limit:,.2f}**"
+                    )
+
+                st.progress(
+                    min(percentage / 100, 1.0)
+                    )
+
+                st.caption(
+                    f"{percentage:.1f}% of monthly budget used"
+                    )
+
+                if status == "over_limit":
+                    st.error(
+                        f"Over budget by ${spent - limit:,.2f}."
+                        )
+                elif status == "limit_reached":
+                    st.warning("You've reached your budget limit.")
+                elif status == "approaching_limit":
+                    st.warning(
+                        f"Approaching your limit. "
+                        f"${remaining:,.2f} remaining."
+                        )
+                else:                        
+                    st.success(
+                        f"${remaining:,.2f} remaining."
+                        )
+
+
 
     def _render_recent_transactions(self, transactions):
         st.markdown("## Recent Activity")
