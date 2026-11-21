@@ -81,12 +81,22 @@ def test_seed_defaults_fills_an_empty_table_once(tmp_path):
     assert [c.name for c in repo.find_all()] == [c.name for c in DEFAULT_CATEGORIES]
 
 
-def test_seed_defaults_never_overwrites_the_users_own_categories(tmp_path):
+def test_seed_defaults_adds_defaults_without_overwriting_users_categories(
+    tmp_path,
+):
     repo = make_repo(tmp_path)
     repo.save(Category("Pets", ["petco"]))
 
-    assert repo.seed_defaults() is False
-    assert [c.name for c in repo.find_all()] == ["Pets"]
+    assert repo.seed_defaults() is True
+
+    pets = repo.find_by_name("Pets")
+    assert pets is not None
+    assert pets.keywords == ("petco",)
+
+    assert repo.find_by_name("Groceries") is not None
+    assert repo.find_by_name("Housing") is not None
+    assert repo.find_by_name("Health") is not None
+    assert repo.find_by_name("Education") is not None
 
 def test_sql_like_names_and_keywords_are_saved_as_data(tmp_path):
     repo = make_repo(tmp_path)

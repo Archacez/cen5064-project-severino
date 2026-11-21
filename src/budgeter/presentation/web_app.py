@@ -138,67 +138,34 @@ def main():
     with dashboard_tab:
         Dashboard(summary_service, budget_monitor).render(transactions)
 
-    with manage_tab:
-        st.subheader("Your Transactions")
-
-        if transactions:
-            for item in transactions:
-                transaction_column, edit_column, delete_column = st.columns(
-                    [6, 1, 1],
-                    vertical_alignment="center",
-                )
-
-                with transaction_column:
-                    transaction_type = item["transaction_type"].capitalize()
-                    category = item["category"] or "Uncategorized"
-
-                    st.markdown(
-                        f"**{item['merchant']}** — "
-                        f"${item['amount']:,.2f}"
-                    )
-                    st.caption(
-                        f"{item['date']} · {category} · {transaction_type}"
-                    )
-
-                with edit_column:
-                    if st.button(
-                        "Edit",
-                        key=f"edit_transaction_{item['id']}",
-                        width="stretch",
-                    ):
-                        st.session_state["selected_transaction_id"] = item["id"]
-                        st.session_state["transaction_action"] = "edit"
-                        st.rerun()
-
-                with delete_column:
-                    if st.button(
-                        "Delete",
-                        key=f"delete_transaction_{item['id']}",
-                        width="stretch",
-                    ):
-                        st.session_state["selected_transaction_id"] = item["id"]
-                        st.session_state["transaction_action"] = "delete"
-                        st.rerun()
-
-                st.divider()
-        else:
-            st.info("No transactions found. Add one to get started.")
-
-        
-        if st.session_state.get("transaction_action") == "delete":
-            selected_id = st.session_state.get("selected_transaction_id")
-
-            selected_transaction = next(
-                (
-                    item for item in transactions
-                    if item["id"] == selected_id
-                ),
-                None,
+        with manage_tab, st.expander("Import Transactions from CSV", expanded=False):
+            st.caption(
+                "Upload a CSV containing amount, merchant, and date. "
+                "An optional transaction_type column supports income and expenses."
             )
 
-            if selected_transaction:
-                confirm_transaction_delete(selected_transaction)
+            uploaded_file = st.file_uploader(
+                "Choose a CSV file",
+                type=["csv"],
+                key="transaction_csv_upload",
+            )
 
+            if st.button(
+                "Import CSV",
+                disabled=uploaded_file is None,
+                key="import_csv_button",
+            ):
+                try:
+                    result = service.import_csv(uploaded_file)
+
+                    st.success(
+                        f"Imported {len(result.imported)} transaction(s). "
+                        f"Skipped {result.skipped} row(s)."
+                    )
+                    st.rerun()
+
+                except ValueError as error:
+                    st.error(str(error))
 
     with manage_tab, st.expander("Add a Transaction", expanded=False):
         transaction_type = st.selectbox(
@@ -344,6 +311,68 @@ def main():
                     st.session_state.pop("transaction_action", None)
                     st.rerun()
 
+    with manage_tab:
+        st.subheader("Your Transactions")
+
+        if transactions:
+            for item in transactions:
+                transaction_column, edit_column, delete_column = st.columns(
+                    [6, 1, 1],
+                    vertical_alignment="center",
+                )
+
+                with transaction_column:
+                    transaction_type = item["transaction_type"].capitalize()
+                    category = item["category"] or "Uncategorized"
+
+                    st.markdown(
+                        f"**{item['merchant']}** — "
+                        f"${item['amount']:,.2f}"
+                    )
+                    st.caption(
+                        f"{item['date']} · {category} · {transaction_type}"
+                    )
+
+                with edit_column:
+                    if st.button(
+                        "Edit",
+                        key=f"edit_transaction_{item['id']}",
+                        width="stretch",
+                    ):
+                        st.session_state["selected_transaction_id"] = item["id"]
+                        st.session_state["transaction_action"] = "edit"
+                        st.rerun()
+
+                with delete_column:
+                    if st.button(
+                        "Delete",
+                        key=f"delete_transaction_{item['id']}",
+                        width="stretch",
+                    ):
+                        st.session_state["selected_transaction_id"] = item["id"]
+                        st.session_state["transaction_action"] = "delete"
+                        st.rerun()
+
+                st.divider()
+        else:
+            st.info("No transactions found. Add one to get started.")
+
+        
+        if st.session_state.get("transaction_action") == "delete":
+            selected_id = st.session_state.get("selected_transaction_id")
+
+            selected_transaction = next(
+                (
+                    item for item in transactions
+                    if item["id"] == selected_id
+                ),
+                None,
+            )
+
+            if selected_transaction:
+                confirm_transaction_delete(selected_transaction)
+
+
 
 
     with budgets_tab:
@@ -448,7 +477,7 @@ def main():
                             budget.category
                         )
                         st.rerun()
-                        
+
         selected_budget = st.session_state.get(
             "selected_budget_category"
             )

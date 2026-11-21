@@ -50,14 +50,18 @@ class TransactionImportService:
         self.repository.save(transaction)
         return transaction
 
+    
     def import_csv(self, file_path):
         rows, total_rows = self.csv_parser.parse(file_path)
 
         imported = []
-        for amount, merchant, date in rows:
+        for amount, merchant, date, transaction_type in rows:
             try:
                 transaction = Transaction(
-                    amount=amount, merchant=merchant, date=date
+                    amount=amount,
+                    merchant=merchant,
+                    date=date,
+                    transaction_type=TransactionType(transaction_type),
                 )
             except ValueError:
                 continue
@@ -70,6 +74,7 @@ class TransactionImportService:
             imported=imported,
             skipped=total_rows - len(imported),
         )
+
 
     def list_transactions(self):
         return self.repository.find_all()

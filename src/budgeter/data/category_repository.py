@@ -148,9 +148,17 @@ class CategoryRepository:
         return cursor.rowcount > 0
 
     def seed_defaults(self):
-        """Fill an EMPTY table with starter categories; never touches existing ones."""
-        if self.find_all():
-            return False
+        """Add missing default categories without modifying existing ones."""
+        existing_categories = {
+            category.name.lower()
+            for category in self.find_all()
+        }
+
+        added_category = False
+
         for category in DEFAULT_CATEGORIES:
-            self.save(category)
-        return True
+            if category.name.lower() not in existing_categories:
+                self.save(category)
+                added_category = True
+
+        return added_category
