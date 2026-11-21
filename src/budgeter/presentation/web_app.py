@@ -63,13 +63,73 @@ def main():
 
     transactions = service.list_transaction_records()
 
+
+    @st.dialog("Confirm Transaction Deletion")
+    def confirm_transaction_delete(transaction):
+        st.warning(
+            f"Are you sure you want to delete "
+            f"'{transaction['merchant']}' "
+            f"(${transaction['amount']:,.2f})?"
+        )
+
+        st.caption("This action cannot be undone.")
+
+        confirm_column, cancel_column = st.columns(2)
+
+        with confirm_column:
+            if st.button(
+                "Confirm Delete",
+                type="primary",
+                width="stretch",
+            ):
+                if service.delete_transaction(transaction["id"]):
+                    st.session_state.pop(
+                        "selected_transaction_id", None
+                    )
+                    st.session_state.pop("transaction_action", None)
+                    st.rerun()
+                else:
+                    st.error("Transaction could not be found.")
+
+        with cancel_column:
+            if st.button("Cancel", width="stretch",):
+                st.session_state.pop(
+                    "selected_transaction_id", None
+                )
+                st.session_state.pop("transaction_action", None)
+                st.rerun()
+
+    @st.dialog("Confirm Budget Deletion")
+    def confirm_budget_delete(category):
+        st.warning(
+            f"Are you sure you want to delete the "
+            f"{category} budget?"
+        )
+        st.caption("This action cannot be undone.")
+
+        confirm_column, cancel_column = st.columns(2)
+
+        with confirm_column:
+            if st.button(
+                "Confirm Delete",
+                type="primary",
+                width="stretch",
+            ):
+                budget_repository = BudgetRepository(DATABASE_PATH)
+                budget_repository.delete(category)
+                st.session_state.pop("selected_budget_category", None)
+                st.rerun()
+
+        with cancel_column:
+            if st.button("Cancel", width="stretch"):
+                st.session_state.pop("selected_budget_category", None)
+                st.rerun()
+
     st.divider()
 
-    dashboard_tab, view_tab, add_tab, manage_tab, budgets_tab = st.tabs(
+    dashboard_tab, manage_tab, budgets_tab = st.tabs(
         [
             "Dashboard",
-            "View Transactions",
-            "Add Transaction",
             "Manage Transactions",
             "Manage Budgets",
         ]
@@ -78,30 +138,69 @@ def main():
     with dashboard_tab:
         Dashboard(summary_service, budget_monitor).render(transactions)
 
-    with view_tab:
+    with manage_tab:
         st.subheader("Your Transactions")
 
         if transactions:
-            st.dataframe(
-                [
-                    {
-                        "Date": item["date"],
-                        "Type": item["transaction_type"].capitalize(),
-                        "Merchant": item["merchant"],
-                        "Category": item["category"] or "Uncategorized",
-                        "Amount": f"${item['amount']:,.2f}",
-                    }
-                    for item in transactions
-                ],
-                use_container_width=True,
-                hide_index=True,
-            )
+            for item in transactions:
+                transaction_column, edit_column, delete_column = st.columns(
+                    [6, 1, 1],
+                    vertical_alignment="center",
+                )
+
+                with transaction_column:
+                    transaction_type = item["transaction_type"].capitalize()
+                    category = item["category"] or "Uncategorized"
+
+                    st.markdown(
+                        f"**{item['merchant']}** — "
+                        f"${item['amount']:,.2f}"
+                    )
+                    st.caption(
+                        f"{item['date']} · {category} · {transaction_type}"
+                    )
+
+                with edit_column:
+                    if st.button(
+                        "Edit",
+                        key=f"edit_transaction_{item['id']}",
+                        width="stretch",
+                    ):
+                        st.session_state["selected_transaction_id"] = item["id"]
+                        st.session_state["transaction_action"] = "edit"
+                        st.rerun()
+
+                with delete_column:
+                    if st.button(
+                        "Delete",
+                        key=f"delete_transaction_{item['id']}",
+                        width="stretch",
+                    ):
+                        st.session_state["selected_transaction_id"] = item["id"]
+                        st.session_state["transaction_action"] = "delete"
+                        st.rerun()
+
+                st.divider()
         else:
             st.info("No transactions found. Add one to get started.")
 
-    with add_tab:
-        st.subheader("Add a Transaction")
+        
+        if st.session_state.get("transaction_action") == "delete":
+            selected_id = st.session_state.get("selected_transaction_id")
 
+            selected_transaction = next(
+                (
+                    item for item in transactions
+                    if item["id"] == selected_id
+                ),
+                None,
+            )
+
+            if selected_transaction:
+                confirm_transaction_delete(selected_transaction)
+
+
+    with manage_tab, st.expander("Add a Transaction", expanded=False):
         transaction_type = st.selectbox(
             "Transaction Type",
             options=[
@@ -145,123 +244,105 @@ def main():
                 except ValueError as error:
                     st.error(str(error))
 
+
     with manage_tab:
-        st.subheader("Edit or Delete a Transaction")
+        selected_id = st.session_state.get("selected_transaction_id")
+        action = st.session_state.get("transaction_action")
 
-        if not transactions:
-            st.info("There are no transactions to manage.")
-        else:
-            transaction_ids = [item["id"] for item in transactions]
-
-            selected_id = st.selectbox(
-                "Select a transaction",
-                transaction_ids,
-                format_func=lambda transaction_id: next(
-                    (
-                        f"{item['transaction_type'].capitalize()} - "
-                        f"{item['merchant']} - "
-                        f"${item['amount']:.2f} ({item['date']})"
-                        for item in transactions
-                        if item["id"] == transaction_id
-                    ),
-                    str(transaction_id),
-                ),
-            )
-
+        if selected_id and action == "edit":
             selected = next(
-                item for item in transactions
-                if item["id"] == selected_id
-            )
-
-            new_transaction_type = st.selectbox(
-                "Transaction Type",
-                options=[
-                    TransactionType.EXPENSE,
-                    TransactionType.INCOME,
-                ],
-                index=(
-                    0
-                    if selected["transaction_type"] == "expense"
-                    else 1
+                (
+                    item for item in transactions
+                    if item["id"] == selected_id
                 ),
-                format_func=lambda item: item.value.capitalize(),
-                key=f"edit_type_{selected_id}",
+                None,
             )
 
-            with st.form("edit_transaction_form"):
-                income_category = None
+            if selected:
+                st.subheader(f"Edit Transaction: {selected['merchant']}")
 
-                if new_transaction_type == TransactionType.INCOME:
-                    current_category = selected["category"]
-
-                    default_index = (
-                        INCOME_CATEGORIES.index(current_category)
-                        if current_category in INCOME_CATEGORIES
-                        else INCOME_CATEGORIES.index("Other Income")
-                    )
-
-                    income_category = st.selectbox(
-                        "Income Category",
-                        options=INCOME_CATEGORIES,
-                        index=default_index,
-                    )
-
-                new_amount = st.number_input(
-                    "Amount ($)",
-                    min_value=0.01,
-                    value=float(selected["amount"]),
-                    step=1.0,
+                new_transaction_type = st.selectbox(
+                    "Transaction Type",
+                    options=[
+                        TransactionType.EXPENSE,
+                        TransactionType.INCOME,
+                    ],
+                    index=(
+                        0
+                        if selected["transaction_type"] == "expense"
+                        else 1
+                    ),
+                    format_func=lambda item: item.value.capitalize(),
+                    key=f"edit_type_{selected_id}",
                 )
 
-                new_merchant = st.text_input(
-                    "Merchant",
-                    value=selected["merchant"],
-                )
+                with st.form(f"edit_transaction_form_{selected_id}"):
+                    income_category = None
 
-                new_date = st.date_input(
-                    "Date",
-                    value=datetime.date.fromisoformat(selected["date"]),
-                )
+                    if new_transaction_type == TransactionType.INCOME:
+                        current_category = selected["category"]
 
-                update_submitted = st.form_submit_button(
-                    "Update Transaction"
-                )
-
-                if update_submitted:
-                    try:
-                        updated = service.update_transaction(
-                            selected_id,
-                            new_amount,
-                            new_merchant,
-                            new_date.isoformat(),
-                            transaction_type=new_transaction_type,
-                            category=income_category,
+                        default_index = (
+                            INCOME_CATEGORIES.index(current_category)
+                            if current_category in INCOME_CATEGORIES
+                            else INCOME_CATEGORIES.index("Other Income")
                         )
 
-                        if updated:
-                            st.success("Transaction updated successfully!")
-                            st.rerun()
-                        else:
-                            st.error("Transaction could not be found.")
-                    except ValueError as error:
-                        st.error(str(error))
+                        income_category = st.selectbox(
+                            "Income Category",
+                            options=INCOME_CATEGORIES,
+                            index=default_index,
+                        )
 
-            st.divider()
+                    new_amount = st.number_input(
+                        "Amount ($)",
+                        min_value=0.01,
+                        value=float(selected["amount"]),
+                        step=1.0,
+                    )
 
-            confirm_delete = st.checkbox(
-                "I understand that deleting this transaction is permanent."
-            )
+                    new_merchant = st.text_input(
+                        "Merchant",
+                        value=selected["merchant"],
+                    )
 
-            if st.button(
-                "Delete Transaction",
-                type="secondary",
-                disabled=not confirm_delete,
-            ):
-                if service.delete_transaction(selected_id):
-                    st.success("Transaction deleted successfully!")
+                    new_date = st.date_input(
+                        "Date",
+                        value=datetime.date.fromisoformat(selected["date"]),
+                    )
+
+                    update_submitted = st.form_submit_button(
+                        "Update Transaction"
+                    )
+
+                    if update_submitted:
+                        try:
+                            updated = service.update_transaction(
+                                selected_id,
+                                new_amount,
+                                new_merchant,
+                                new_date.isoformat(),
+                                transaction_type=new_transaction_type,
+                                category=income_category,
+                            )
+
+                            if updated:
+                                st.success("Transaction updated successfully!")
+                                st.session_state.pop(
+                                    "selected_transaction_id", None
+                                )
+                                st.session_state.pop("transaction_action", None)
+                                st.rerun()
+                            else:
+                                st.error("Transaction could not be found.")
+
+                        except ValueError as error:
+                            st.error(str(error))
+
+                if st.button("Cancel Editing"):
+                    st.session_state.pop("selected_transaction_id", None)
+                    st.session_state.pop("transaction_action", None)
                     st.rerun()
-                else:
-                    st.error("Transaction could not be found.")
 
 
 
@@ -361,12 +442,19 @@ def main():
                     if st.button(
                         "Delete",
                         key=f"delete_budget_{budget.category}",
+                        width="stretch",
                     ):
-                        budget_repository.delete(budget.category)
-                        st.success(
-                            f"{budget.category} budget deleted."
+                        st.session_state["selected_budget_category"] = (
+                            budget.category
                         )
                         st.rerun()
+                        
+        selected_budget = st.session_state.get(
+            "selected_budget_category"
+            )
+
+        if selected_budget:
+            confirm_budget_delete(selected_budget)
 
 
 if __name__ == "__main__":
