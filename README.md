@@ -104,87 +104,232 @@ python -m ruff check .
 | Domain | [your entities and business rules] Finance concepts and business rules. Examples: Transaction, Category, Budget, TransactionCategorization |
 | Data | [how and where data is stored] SQLite persistence. Examples: TransactionRepository, CategoryRepository, BudgetRepository |
 
-### C4 — Context & Container (Session 3 studio)
+
+### C4 — Context & Container
+
+**Context Diagram**
 
 ```mermaid
-%% Replace this placeholder with YOUR system's context diagram.
 flowchart TB
-    user([User]) -->|uses| system[Personal Finance Budgeter]
+    user([User])
+    system[Personal Finance Budgeter]
+
+    user -->|Uses| system
 ```
 
-```mermaid
-%% Container view: your containers should match the tier table above.
-flowchart TB
-    subgraph System [Personal Finance Budgeter]
-        ui[Web UI<br/>Dashboard, TransactionInputForm<br/>Presentation]
-        service[Service Layer<br/>TransactionImportService, BudgetMonitorService<br/>Service]
-        domain[Domain Model<br/>TransactionCategorization, Budget<br/>Domain]
-        data[Repositories<br/>TransactionRepository, BudgetRepository<br/>Data]
-        db[(Relational Database)]
+**Container Diagram**
 
-        ui --> service
-        service --> domain
-        service --> data
-        domain --> data
-        data --> db
+```mermaid
+flowchart TB
+    user([User])
+
+    subgraph System["Personal Finance Budgeter"]
+        direction TB
+
+        subgraph Presentation["Presentation Layer"]
+            UI["Streamlit Web Application<br/>web_app.py"]
+            Dashboard["Dashboard<br/>dashboard.py"]
+        end
+
+        subgraph Services["Service Layer"]
+            Import["TransactionImportService"]
+            BudgetMonitor["BudgetMonitorService"]
+            Summary["SpendingSummaryService"]
+            CSV["TransactionCsvParser"]
+        end
+
+        subgraph Domain["Domain Layer"]
+            Transaction["Transaction<br/>TransactionType"]
+            Category["Category"]
+            Budget["Budget"]
+            Categorization["TransactionCategorization"]
+        end
+
+        subgraph Data["Data Layer"]
+            TransactionRepo["TransactionRepository"]
+            CategoryRepo["CategoryRepository"]
+            BudgetRepo["BudgetRepository"]
+        end
+
+        DB[("SQLite Database")]
+        CategoryJSON[("default_categories.json")]
     end
+
+    user -->|Uses| UI
+
+    UI -->|Displays| Dashboard
+    UI -->|Uses| Import
+    UI -->|Uses| BudgetMonitor
+    UI -->|Uses| Summary
+
+    Import -->|Creates and validates| Transaction
+    Import -->|Uses| Categorization
+    Import -->|Uses| CSV
+    Import -->|Persists transactions| TransactionRepo
+
+    BudgetMonitor -->|Checks budget status| Summary
+    BudgetMonitor -->|Retrieves budgets| BudgetRepo
+
+    Summary -->|Reads transactions| TransactionRepo
+    Categorization -->|Uses category rules| CategoryRepo
+
+    TransactionRepo --> DB
+    CategoryRepo --> DB
+    BudgetRepo --> DB
+    CategoryRepo -->|Loads defaults| CategoryJSON
 ```
 
-### UML — Class & Sequence (Session 3 studio)
+### UML — Class & Sequence
+
+**Class Diagram**
 
 ```mermaid
-%% Class diagram: your 3–4 core domain classes.
 classDiagram
     class Transaction {
-        -id: int
-        -amount: float
-        -merchant: String
-        -date: Date
-        -category: String
+        -float amount
+        -String merchant
+        -String date
+        -String category
+        -TransactionType transaction_type
+    }
+
+    class TransactionType {
+        <<enumeration>>
+        INCOME
+        EXPENSE
     }
 
     class Category {
-        -name: String
-        -keywords: List~String~
+        -String name
+        -List~String~ keywords
     }
 
     class Budget {
-        -category: String
-        -limit: float
-        +is_over_limit(spent_amount: float) bool
+        -String category
+        -float limit
+        +is_over_limit(spent_amount) bool
+        +has_reached_limit(spent_amount) bool
     }
 
     class TransactionCategorization {
-        -rules: Dict~String, String~
-        +categorize(transaction: Transaction) String
+        -Dict~String, String~ rules
+        +categorize(transaction) String
     }
 
+    class TransactionImportService {
+        -repository
+        -categorizer
+        -csv_parser
+        +import_manual_entry(amount, merchant, date, transaction_type, category)
+        +import_csv(file_path)
+        +update_transaction(transaction_id, amount, merchant, date)
+        +delete_transaction(transaction_id)
+        +list_transactions()
+    }
+
+    class SpendingSummaryService {
+        -repository
+        +income_and_expenses()
+        +spending_by_category(month)
+        +monthly_cash_flow()
+        +spending_by_month()
+    }
+
+    class BudgetMonitorService {
+        -summary_service
+        -budget_repository
+        -warning_threshold
+        +get_budget_status(month)
+    }
+
+    class TransactionCsvParser {
+        +parse(file_path)
+    }
+
+    class TransactionRepository {
+        +save(transaction)
+        +find_all()
+        +find_all_records()
+        +find_record_by_id(transaction_id)
+        +find_by_category(category)
+        +update(transaction_id, transaction)
+        +delete(transaction_id)
+    }
+
+    class CategoryRepository {
+        +save(category)
+        +find_all()
+        +find_by_name(name)
+        +delete(name)
+        +seed_defaults()
+    }
+
+    class BudgetRepository {
+        +save(budget)
+        +find_all()
+        +find_by_category(category)
+        +delete(category)
+    }
+
+    class Dashboard {
+        -summary_service
+        -budget_monitor
+        +render(transactions)
+    }
+
+    Transaction --> TransactionType : has type
     TransactionCategorization --> Transaction : categorizes
-    TransactionCategorization --> Category : assigns
+    TransactionCategorization --> Category : uses rules
     Budget --> Category : tracks
+
+    TransactionImportService --> TransactionRepository : uses
+    TransactionImportService --> TransactionCategorization : uses
+    TransactionImportService --> TransactionCsvParser : uses
+
+    SpendingSummaryService --> TransactionRepository : reads
+    BudgetMonitorService --> SpendingSummaryService : uses
+    BudgetMonitorService --> BudgetRepository : uses
+
+    CategoryRepository --> Category : stores
+    TransactionRepository --> Transaction : stores
+    BudgetRepository --> Budget : stores
+
+    Dashboard --> SpendingSummaryService : uses
+    Dashboard --> BudgetMonitorService : uses
 ```
 
+**Sequence Diagram — Adding a Transaction**
+
 ```mermaid
-%% Sequence diagram: ONE core use case, end to end.
 sequenceDiagram
     actor U as User
-    participant UI as TransactionInputForm
+    participant UI as Streamlit Web App
     participant S as TransactionImportService
     participant Cat as TransactionCategorization
     participant Repo as TransactionRepository
-    participant DB as Database
+    participant DB as SQLite Database
 
-    U->>UI: submit transaction (manual/CSV)
-    UI->>S: import_transaction(raw_data)
-    S->>Cat: categorize(transaction)
-    Cat-->>S: category
+    U->>UI: Enter transaction details
+    UI->>S: import_manual_entry(amount, merchant, date, type)
+
+    S->>S: Create and validate Transaction
+
+    alt Transaction is an expense
+        S->>Cat: categorize(transaction)
+        Cat-->>S: Return category
+    else Transaction is income
+        S->>S: Preserve income category
+    end
+
     S->>Repo: save(transaction)
     Repo->>DB: INSERT transaction
-    DB-->>Repo: confirmation
-    Repo-->>S: saved
-    S-->>UI: import complete
-    UI-->>U: confirmation
+    DB-->>Repo: Confirm saved
+    Repo-->>S: Return saved transaction
+
+    S-->>UI: Return transaction
+    UI-->>U: Display success message and updated list
 ```
+
 
 ## Architecture Decision Records
 
