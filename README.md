@@ -6,7 +6,7 @@
 
 **Student:** Deijen Severino · **Course:** CEN 5064 Software Design, Fall 2026 · **Partner:** @Eshim003
 
-## Project (approval paragraph — write this by Sun Aug 30)
+## Project
 
 Project: Personal Finance Budgeter
 
@@ -66,49 +66,22 @@ python -m pip install pytest ruff
 
 ```
 cd src
-python -m budgeter
+python -m streamlit run budgeter/presentation/web_app.py
 ```
 
-A menu appears:
+### Importing Sample Transactions
 
 ```
-1) Add a transaction
-2) Import transactions from a CSV file
-3) List transactions
-4) Quit
+In Manage Transactions tab, click 'Import Transactions from CSV'.
+Click 'Upload', navigate to project root and select 'sample_transactions.csv'.
+Click Open, then click Import CSV.
 ```
-
-Try this walkthrough:
-
-1. Choose `2` and enter `../sample_transactions.csv`. You should see
-   `Imported 6 transaction(s). Skipped 1 invalid row(s).` (the sample file has one
-   deliberately bad row).
-2. Choose `1` and add one by hand: amount `12.50`, merchant `Starbucks`,
-   date `2026-10-09`.
-3. Choose `3` to list everything:
-
-```
-2026-10-01       12.50  STARBUCKS  [Uncategorized]
-2026-10-02       45.20  SHELL  [Uncategorized]
-2026-10-03       15.99  NETFLIX  [Uncategorized]
-2026-10-04       82.31  PUBLIX  [Uncategorized]
-2026-10-06        9.75  UBER  [Uncategorized]
-2026-10-07      120.00  FPL ELECTRIC  [Uncategorized]
-2026-10-09       12.50  Starbucks  [Uncategorized]
-```
-
-4. Choose `4` to quit, run `python -m budgeter` again, and choose `3`. Your data is
-   still there, because it is stored in a SQLite file (`budgeter.db`) created in the
-   folder you started the app from. Delete that file to start fresh.
-
-Transactions are shown as "Uncategorized" for now; automatic categorization is a
-later feature.
 
 ### CSV format
 
-Columns `amount,merchant,date`. The amount must be positive (a value like `1,234.50`
+Columns `amount,merchant,date,transaction_type`. The amount must be positive (a value like `1,234.50`
 is fine), the merchant must not be blank, and the date must be a real day written as
-`YYYY-MM-DD`. Rows that break these rules are skipped and counted.
+`YYYY-MM-DD`. Rows that break these rules are skipped and counted. Transaction type column is optional.
 
 ### 3. Run the tests and linter
 
@@ -120,100 +93,243 @@ python -m ruff check .
 ```
 
 
-
-
 ## Architecture
 
 ### Tier breakdown (Session 2 studio)
 
 | Tier | Responsibilities in THIS system |
 |------|--------------------------------|
-| Presentation | [what your UI layer does] "Dashboard" - Dashboard UI for spending trends, "TransactionInputForm" - plus the transaction input forms (manual entry, CSV upload) |
-| Service | [what your use-case/orchestration layer does] "TransactionImportService" - Orchestrates use cases: import flow (parse → categorize → save), and "BudgetMonitorService" - budget monitoring (check transactions against budget rules, trigger alerts) |
-| Domain | [your entities and business rules] "Transaction" - represents an imported transaction (amount, merchant, date, category), "Category" - represents a spending category and its matching keywords, "TransactionCategorization" - (keyword/merchant rules, uncategorized fallback) and "Budget" - Budget (limit, threshold, over-limit check) |
-| Data | [how and where data is stored] "TransactionRepository", "BudgetRepository" Repositories for Transaction, Category, and Budget records against the relational database |
+| Presentation | [what your UI layer does] Streamlit interface and user interaction. Examples: web_app.py, Dashboard |
+| Service | [what your use-case/orchestration layer does] Coordinates application workflows. Examples: TransactionImportService, SpendingSummaryService, BudgetMonitorService, TransactionCsvParser |
+| Domain | [your entities and business rules] Finance concepts and business rules. Examples: Transaction, Category, Budget, TransactionCategorization |
+| Data | [how and where data is stored] SQLite persistence. Examples: TransactionRepository, CategoryRepository, BudgetRepository |
 
-### C4 — Context & Container (Session 3 studio)
+
+### C4 — Context & Container
+
+**Context Diagram**
 
 ```mermaid
-%% Replace this placeholder with YOUR system's context diagram.
 flowchart TB
-    user([User]) -->|uses| system[Personal Finance Budgeter]
+    user([User])
+    system[Personal Finance Budgeter]
+
+    user -->|Uses| system
 ```
 
-```mermaid
-%% Container view: your containers should match the tier table above.
-flowchart TB
-    subgraph System [Personal Finance Budgeter]
-        ui[Web UI<br/>Dashboard, TransactionInputForm<br/>Presentation]
-        service[Service Layer<br/>TransactionImportService, BudgetMonitorService<br/>Service]
-        domain[Domain Model<br/>TransactionCategorization, Budget<br/>Domain]
-        data[Repositories<br/>TransactionRepository, BudgetRepository<br/>Data]
-        db[(Relational Database)]
+**Container Diagram**
 
-        ui --> service
-        service --> domain
-        service --> data
-        domain --> data
-        data --> db
+```mermaid
+flowchart TB
+    user([User])
+
+    subgraph System["Personal Finance Budgeter"]
+        direction TB
+
+        subgraph Presentation["Presentation Layer"]
+            UI["Streamlit Web Application<br/>web_app.py"]
+            Dashboard["Dashboard<br/>dashboard.py"]
+        end
+
+        subgraph Services["Service Layer"]
+            Import["TransactionImportService"]
+            BudgetMonitor["BudgetMonitorService"]
+            Summary["SpendingSummaryService"]
+            CSV["TransactionCsvParser"]
+        end
+
+        subgraph Domain["Domain Layer"]
+            Transaction["Transaction<br/>TransactionType"]
+            Category["Category"]
+            Budget["Budget"]
+            Categorization["TransactionCategorization"]
+        end
+
+        subgraph Data["Data Layer"]
+            TransactionRepo["TransactionRepository"]
+            CategoryRepo["CategoryRepository"]
+            BudgetRepo["BudgetRepository"]
+        end
+
+        DB[("SQLite Database")]
+        CategoryJSON[("default_categories.json")]
     end
+
+    user -->|Uses| UI
+
+    UI -->|Displays| Dashboard
+    UI -->|Uses| Import
+    UI -->|Uses| BudgetMonitor
+    UI -->|Uses| Summary
+
+    Import -->|Creates and validates| Transaction
+    Import -->|Uses| Categorization
+    Import -->|Uses| CSV
+    Import -->|Persists transactions| TransactionRepo
+
+    BudgetMonitor -->|Checks budget status| Summary
+    BudgetMonitor -->|Retrieves budgets| BudgetRepo
+
+    Summary -->|Reads transactions| TransactionRepo
+    Categorization -->|Uses category rules| CategoryRepo
+
+    TransactionRepo --> DB
+    CategoryRepo --> DB
+    BudgetRepo --> DB
+    CategoryRepo -->|Loads defaults| CategoryJSON
 ```
 
-### UML — Class & Sequence (Session 3 studio)
+### UML — Class & Sequence
+
+**Class Diagram**
 
 ```mermaid
-%% Class diagram: your 3–4 core domain classes.
 classDiagram
     class Transaction {
-        -id: int
-        -amount: float
-        -merchant: String
-        -date: Date
-        -category: String
+        -float amount
+        -String merchant
+        -String date
+        -String category
+        -TransactionType transaction_type
+    }
+
+    class TransactionType {
+        <<enumeration>>
+        INCOME
+        EXPENSE
     }
 
     class Category {
-        -name: String
-        -keywords: List~String~
+        -String name
+        -List~String~ keywords
     }
 
     class Budget {
-        -category: String
-        -limit: float
-        +is_over_limit(spent_amount: float) bool
+        -String category
+        -float limit
+        +is_over_limit(spent_amount) bool
+        +has_reached_limit(spent_amount) bool
     }
 
     class TransactionCategorization {
-        -rules: Dict~String, String~
-        +categorize(transaction: Transaction) String
+        -Dict~String, String~ rules
+        +categorize(transaction) String
     }
 
+    class TransactionImportService {
+        -repository
+        -categorizer
+        -csv_parser
+        +import_manual_entry(amount, merchant, date, transaction_type, category)
+        +import_csv(file_path)
+        +update_transaction(transaction_id, amount, merchant, date)
+        +delete_transaction(transaction_id)
+        +list_transactions()
+    }
+
+    class SpendingSummaryService {
+        -repository
+        +income_and_expenses()
+        +spending_by_category(month)
+        +monthly_cash_flow()
+        +spending_by_month()
+    }
+
+    class BudgetMonitorService {
+        -summary_service
+        -budget_repository
+        -warning_threshold
+        +get_budget_status(month)
+    }
+
+    class TransactionCsvParser {
+        +parse(file_path)
+    }
+
+    class TransactionRepository {
+        +save(transaction)
+        +find_all()
+        +find_all_records()
+        +find_record_by_id(transaction_id)
+        +find_by_category(category)
+        +update(transaction_id, transaction)
+        +delete(transaction_id)
+    }
+
+    class CategoryRepository {
+        +save(category)
+        +find_all()
+        +find_by_name(name)
+        +delete(name)
+        +seed_defaults()
+    }
+
+    class BudgetRepository {
+        +save(budget)
+        +find_all()
+        +find_by_category(category)
+        +delete(category)
+    }
+
+    class Dashboard {
+        -summary_service
+        -budget_monitor
+        +render(transactions)
+    }
+
+    Transaction --> TransactionType : has type
     TransactionCategorization --> Transaction : categorizes
-    TransactionCategorization --> Category : assigns
+    TransactionCategorization --> Category : uses rules
     Budget --> Category : tracks
+
+    TransactionImportService --> TransactionRepository : uses
+    TransactionImportService --> TransactionCategorization : uses
+    TransactionImportService --> TransactionCsvParser : uses
+
+    SpendingSummaryService --> TransactionRepository : reads
+    BudgetMonitorService --> SpendingSummaryService : uses
+    BudgetMonitorService --> BudgetRepository : uses
+
+    CategoryRepository --> Category : stores
+    TransactionRepository --> Transaction : stores
+    BudgetRepository --> Budget : stores
+
+    Dashboard --> SpendingSummaryService : uses
+    Dashboard --> BudgetMonitorService : uses
 ```
 
+**Sequence Diagram — Adding a Transaction**
+
 ```mermaid
-%% Sequence diagram: ONE core use case, end to end.
 sequenceDiagram
     actor U as User
-    participant UI as TransactionInputForm
+    participant UI as Streamlit Web App
     participant S as TransactionImportService
     participant Cat as TransactionCategorization
     participant Repo as TransactionRepository
-    participant DB as Database
+    participant DB as SQLite Database
 
-    U->>UI: submit transaction (manual/CSV)
-    UI->>S: import_transaction(raw_data)
-    S->>Cat: categorize(transaction)
-    Cat-->>S: category
+    U->>UI: Enter transaction details
+    UI->>S: import_manual_entry(amount, merchant, date, type)
+
+    S->>S: Create and validate Transaction
+
+    alt Transaction is an expense
+        S->>Cat: categorize(transaction)
+        Cat-->>S: Return category
+    else Transaction is income
+        S->>S: Preserve income category
+    end
+
     S->>Repo: save(transaction)
     Repo->>DB: INSERT transaction
-    DB-->>Repo: confirmation
-    Repo-->>S: saved
-    S-->>UI: import complete
-    UI-->>U: confirmation
+    DB-->>Repo: Confirm saved
+    Repo-->>S: Return saved transaction
+
+    S-->>UI: Return transaction
+    UI-->>U: Display success message and updated list
 ```
+
 
 ## Architecture Decision Records
 
@@ -223,6 +339,7 @@ Decisions live in [`docs/adr/`](docs/adr/). Start with ADR-001 in Session 4.
 |---|----------|--------|
 | [001](docs/adr/adr-001.md) | [Categorize transactions with keyword/merchant rules - machine learning out of scope] | [accepted] |
 | [002](docs/adr/adr-002.md) | [Business rules live in the Domain; pandas only parses and cleans - duplicated validity check for manual and CSV entry, copies could drift apart] | [accepted] |
+| [003](docs/adr/adr-003.md) | [Streamlit Framework Selection for Web-Based GUI] | [accepted] |
 
 ## Weekly log (optional but recommended)
 
@@ -234,4 +351,4 @@ A one-line note per week keeps your commit story readable:
 
 ## Known Issues
 
-- Importing Transactions Feature
+

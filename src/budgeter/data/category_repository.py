@@ -1,15 +1,26 @@
+import json
 import sqlite3
 from contextlib import closing
+from pathlib import Path
 
 from budgeter.domain.category import Category
 
-DEFAULT_CATEGORIES = [
-    Category("Food", ["uber eats", "starbucks", "publix", "mcdonalds", "chipotle", "restaurant", "cafe", "pizza", "grocery"]),
-    Category("Transport", ["shell", "uber", "lyft", "chevron", "exxon", "parking"]),
-    Category("Entertainment", ["netflix", "spotify", "hulu", "cinema"]),
-    Category("Utilities", ["fpl", "comcast", "verizon", "water", "electric"]),
-    Category("Shopping", ["amazon", "walmart", "target"]),
-]
+DEFAULT_CATEGORIES_FILE = Path(__file__).with_name("default_categories.json")
+
+
+def load_default_categories():
+    """Load starter categories from the JSON configuration file."""
+    with DEFAULT_CATEGORIES_FILE.open(encoding="utf-8") as file:
+        data = json.load(file)
+
+    return [
+        Category(item["name"], item["keywords"])
+        for item in data
+    ]
+
+
+DEFAULT_CATEGORIES = load_default_categories()
+
 
 
 class CategoryRepository:
@@ -40,6 +51,30 @@ class CategoryRepository:
                 )
                 """
             )
+            conn.execute(
+                """
+                UPDATE categories
+                SET name = 'Transportation'
+                WHERE name = 'Transport'
+                """
+            )
+            transactions_table_exists = conn.execute(
+                """
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table'
+                AND name = 'transactions'
+                """
+            ).fetchone()
+
+            if transactions_table_exists:
+                conn.execute(
+                    """
+                    UPDATE transactions
+                    SET category = 'Transportation'
+                    WHERE category = 'Transport'
+                    """
+                )
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
@@ -113,9 +148,17 @@ class CategoryRepository:
         return cursor.rowcount > 0
 
     def seed_defaults(self):
-        """Fill an EMPTY table with starter categories; never touches existing ones."""
-        if self.find_all():
-            return False
+        """Add missing default categories without modifying existing ones."""
+        existing_categories = {
+            category.name.lower()
+            for category in self.find_all()
+        }
+
+        added_category = False
+
         for category in DEFAULT_CATEGORIES:
-            self.save(category)
-        return True
+            if category.name.lower() not in existing_categories:
+                self.save(category)
+                added_category = True
+
+        return added_category

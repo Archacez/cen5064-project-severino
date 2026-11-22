@@ -41,4 +41,29 @@ class TransactionCsvParser:
         )
         dates = df["date"].astype("string").str.strip()
 
-        return zip(amounts, merchants, dates), len(df)
+        if "transaction_type" in df.columns:
+            transaction_types = (
+                df["transaction_type"]
+                .astype("string")
+                .str.strip()
+                .str.lower()
+            )
+            transaction_types = transaction_types.replace("", "expense")
+        else:
+            transaction_types = pd.Series(
+                ["expense"] * len(df), dtype="string"
+            )
+
+        valid_types = {"income", "expense"}
+        invalid_types = ~transaction_types.isin(valid_types)
+
+        if invalid_types.any():
+            invalid_values = sorted(
+                transaction_types[invalid_types].unique().tolist()
+            )
+            raise ValueError(
+                f"Invalid transaction type(s): {invalid_values}. "
+                "Expected 'income' or 'expense'."
+            )
+
+        return zip(amounts, merchants, dates, transaction_types), len(df)

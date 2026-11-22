@@ -2,6 +2,7 @@ import csv
 
 import pytest
 
+from budgeter.domain.transaction import TransactionType
 from budgeter.service.transaction_import_service import TransactionImportService
 
 
@@ -243,3 +244,45 @@ def test_each_import_reports_its_own_skip_count(tmp_path):
     assert first_result.skipped == 1
     assert second_result.skipped == 0  # nothing carried over from the first import
     assert not hasattr(service, "last_skipped_count")
+
+def test_csv_import_preserves_income_and_expense_types(tmp_path):
+    service, repo = make_service()
+    path = tmp_path / "transactions.csv"
+
+    write_csv(
+        path,
+        [
+            [2500.00, "MONTHLY SALARY", "2026-11-01", "income"],
+            [45.50, "PUBLIX", "2026-11-02", "expense"],
+        ],
+        header=("amount", "merchant", "date", "transaction_type"),
+    )
+
+    result = service.import_csv(str(path))
+
+    assert len(result.imported) == 2
+    assert result.skipped == 0
+    assert repo.saved[0].transaction_type == TransactionType.INCOME
+    assert repo.saved[1].transaction_type == TransactionType.EXPENSE
+
+
+def test_legacy_csv_without_transaction_type_defaults_to_expense(tmp_path):
+    service, repo = make_service()
+    path = tmp_path / "legacy.csv"
+
+    write_csv(
+        path,
+        [
+            [12.50, "STARBUCKS", "2026-10-01"],
+            [45.20, "SHELL", "2026-10-02"],
+        ],
+    )
+
+    result = service.import_csv(str(path))
+
+    assert len(result.imported) == 2
+    assert result.skipped == 0
+    assert all(
+        transaction.transaction_type == TransactionType.EXPENSE
+        for transaction in repo.saved
+    )

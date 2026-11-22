@@ -23,9 +23,16 @@ def test_save_then_find_all_keeps_order_of_categories_and_keywords(tmp_path):
 
 
 def test_categories_survive_a_restart(tmp_path):
-    make_repo(tmp_path).save(Category("Food", ["starbucks"]))
+    make_repo(tmp_path).save(
+        Category("Food", ["starbucks", "publix", "chipotle"])
+    )
 
-    assert [c.name for c in make_repo(tmp_path).find_all()] == ["Food"]
+    restarted_repo = make_repo(tmp_path)
+    found = restarted_repo.find_all()
+
+    assert len(found) == 1
+    assert found[0].name == "Food"
+    assert found[0].keywords == ("starbucks", "publix", "chipotle")
 
 
 def test_saving_again_replaces_keywords_and_keeps_the_position(tmp_path):
@@ -74,12 +81,22 @@ def test_seed_defaults_fills_an_empty_table_once(tmp_path):
     assert [c.name for c in repo.find_all()] == [c.name for c in DEFAULT_CATEGORIES]
 
 
-def test_seed_defaults_never_overwrites_the_users_own_categories(tmp_path):
+def test_seed_defaults_adds_defaults_without_overwriting_users_categories(
+    tmp_path,
+):
     repo = make_repo(tmp_path)
     repo.save(Category("Pets", ["petco"]))
 
-    assert repo.seed_defaults() is False
-    assert [c.name for c in repo.find_all()] == ["Pets"]
+    assert repo.seed_defaults() is True
+
+    pets = repo.find_by_name("Pets")
+    assert pets is not None
+    assert pets.keywords == ("petco",)
+
+    assert repo.find_by_name("Groceries") is not None
+    assert repo.find_by_name("Housing") is not None
+    assert repo.find_by_name("Health") is not None
+    assert repo.find_by_name("Education") is not None
 
 def test_sql_like_names_and_keywords_are_saved_as_data(tmp_path):
     repo = make_repo(tmp_path)

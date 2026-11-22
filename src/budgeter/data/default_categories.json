@@ -1,0 +1,98 @@
+
+[
+    {
+        "name": "Food",
+        "keywords": [
+            "uber eats",
+            "starbucks",
+            "publix",
+            "mcdonalds",
+            "chipotle",
+            "restaurant",
+            "cafe",
+            "pizza",
+            "grocery"
+        ]
+    },
+    {
+        "name": "Transportation",
+        "keywords": [
+            "shell",
+            "uber",
+            "lyft",
+            "chevron",
+            "exxon",
+            "parking"
+        ]
+    },
+    {
+        "name": "Entertainment",
+        "keywords": [
+            "netflix",
+            "spotify",
+            "hulu",
+            "cinema"
+        ]
+    },
+    {
+        "name": "Utilities",
+        "keywords": [
+            "fpl",
+            "comcast",
+            "verizon",
+            "water",
+            "electric"
+        ]
+    },
+    {
+        "name": "Shopping",
+        "keywords": [
+            "amazon",
+            "walmart",
+            "target"
+        ]
+    },
+    {
+        "name": "Groceries",
+        "keywords": [
+            "whole foods",
+            "trader joe's",
+            "aldi",
+            "costco",
+            "winn-dixie",
+            "supermarket"
+        ]
+    },
+    {
+        "name": "Housing",
+        "keywords": [
+            "rent",
+            "mortgage",
+            "hoa",
+            "property management"
+        ]
+    },
+    {
+        "name": "Health",
+        "keywords": [
+            "pharmacy",
+            "cvs",
+            "walgreens",
+            "doctor",
+            "hospital",
+            "dentist",
+            "medical"
+        ]
+    },
+    {
+        "name": "Education",
+        "keywords": [
+            "tuition",
+            "university",
+            "college",
+            "textbook",
+            "school",
+            "course"
+        ]
+    }
+]
