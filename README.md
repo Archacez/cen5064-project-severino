@@ -74,7 +74,7 @@ python -m streamlit run budgeter/presentation/web_app.py
 ```
 In Manage Transactions tab, click 'Import Transactions from CSV'.
 Click 'Upload', navigate to project root and select 'sample_transactions.csv'.
-Click Open, then click on Import CSV.
+Click Open, then click Import CSV.
 ```
 
 ### CSV format
