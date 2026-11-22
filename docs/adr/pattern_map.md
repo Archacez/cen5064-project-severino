@@ -1,6 +1,6 @@
-##Creational Design Pattern Map
+## Creational Design Pattern Map
 
-###Project context
+### Project context
 Budgeter is a local personal-finance application built with Python, Streamlit, and SQLite. It supports transaction CRUD, CSV import, income and expense tracking, category budgets, and a spending dashboard.
 
 The assignment asks for one honest line for each of the five creational patterns: a genuine location in the system or an explanation of why there is no genuine fit.
